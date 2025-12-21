@@ -47,7 +47,7 @@ pip install -r requirements.txt
 python setup_database.py
 ```
 
-## 📖 Usage
+##  Usage
 
 ### Interactive Mode
 
