@@ -11,7 +11,7 @@ PDF → Text Extraction → Chunking → Embeddings → SQLite Database
                                                           ↓
                     ┌─────────────────────────────────────┤
                     │                                     │
-User Query → Embedding → Adaptive RAG Router             │
+User Query → Embedding → Adaptive RAG Router              │
                     │                                     │
                     ├→ Vector Search (local docs) ────────┘
                     │         ↓
@@ -23,9 +23,9 @@ User Query → Embedding → Adaptive RAG Router             │
                     │         ↓
                     │    Grade Answer (useful?)
                     │         │
-                    │    ┌────┴────┐
-                    │    │ Good?   │
-                    │    └─Yes─No──┘
+                    │    ┌────┴────────┐
+                    │    │     Good?   │
+                    │    └────Yes─No───┘
                     │         │   │
                     └─────────┤   └→ Web Search (DuckDuckGo)
                               │              ↓
