@@ -14,10 +14,10 @@ User Query → Embedding → Vector Search → Context → LLM → Answer
 
 ## Features
 
--  **Free & Local** - Uses open-source models (sentence-transformers + Ollama)
--  **Zero Installation** - SQLite comes with Python, no database setup needed
--  **Pure Python** - Direct SQL queries for similarity search
--  **Production Ready** - Error handling, logging, batch processing
+- **Free & Local** - Uses open-source models (sentence-transformers + Ollama)
+- **Zero Installation** - SQLite comes with Python, no database setup needed
+- **Pure Python** - Direct SQL queries for similarity search
+- **Production Ready** - Error handling, logging, batch processing
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ pip install -r requirements.txt
 python setup_database.py
 ```
 
-##  Usage
+## Usage
 
 ### Interactive Mode
 
@@ -162,7 +162,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 LLM_TIMEOUT=90
 ```
 
-##  How It Works
+## How It Works
 
 ### Ingestion Flow
 
@@ -179,7 +179,7 @@ LLM_TIMEOUT=90
 4. **Generate Answer** → Feed context to Ollama LLM
 5. **Return Response** → Answer + sources
 
-##  Database Schema
+## Database Schema
 
 ```sql
 CREATE TABLE documents (
@@ -191,7 +191,7 @@ CREATE TABLE documents (
 );
 ```
 
-##  Similarity Search
+## Similarity Search
 
 Manual cosine similarity calculation in Python:
 
@@ -222,7 +222,7 @@ ollama pull phi      # 1.6 GB, faster but less accurate
 - Reduce batch size in `embeddings.py`
 - Use smaller chunks (reduce `CHUNK_SIZE` in `.env`)
 
-##  Optimization Notes
+## Optimization Notes
 
 The system is optimized for **accuracy over speed**:
 
@@ -268,7 +268,7 @@ This implementation demonstrates:
 - **Response Quality**: Optimized for accuracy with temperature=0.0
 - **Note**: For >10k documents, consider upgrading to PostgreSQL + pgvector
 
-##  License
+## License
 
 MIT
 

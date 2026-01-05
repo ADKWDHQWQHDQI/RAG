@@ -16,7 +16,7 @@ def setup_database():
     try:
         db = Database()
         if not db.connect():
-            print("\n❌ Setup failed")
+            print("\n[ERROR] Setup failed")
             return False
         
         db.create_extension()  # Dummy call for compatibility
@@ -25,22 +25,22 @@ def setup_database():
         
         return True
     except Exception as e:
-        print(f"❌ Error setting up database: {e}")
+        print(f"[ERROR] Error setting up database: {e}")
         return False
 
 
 def main():
     """Main setup function"""
-    print("\n🔧 Setting up SQLite database...")
-    print("✅ No installation required - SQLite comes with Python!")
+    print("\n[SETUP] Setting up SQLite database...")
+    print("[INFO] No installation required - SQLite comes with Python!")
     print()
     
     if not setup_database():
-        print("\n❌ Setup failed")
+        print("\n[ERROR] Setup failed")
         return
     
     print("\n" + "=" * 60)
-    print("✅ Setup completed successfully!")
+    print("[SUCCESS] Setup completed successfully!")
     print("=" * 60)
     print("\nDatabase file created: rag_database.db")
     print("\nNext steps:")

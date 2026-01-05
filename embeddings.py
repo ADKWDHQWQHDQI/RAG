@@ -12,17 +12,17 @@ class EmbeddingModel:
     def __init__(self, model_name: Optional[str] = None):
         self.model_name = model_name or Config.EMBEDDING_MODEL
         self.model = None
-        print(f"🔄 Loading embedding model: {self.model_name}")
+        print(f"[LOADING] Loading embedding model: {self.model_name}")
     
     def load(self):
         """Load the embedding model"""
         try:
             self.model = SentenceTransformer(self.model_name)
-            print(f"✅ Embedding model loaded: {self.model_name}")
+            print(f"[SUCCESS] Embedding model loaded: {self.model_name}")
             print(f"   Embedding dimension: {self.model.get_sentence_embedding_dimension()}")
             return True
         except Exception as e:
-            print(f"❌ Error loading embedding model: {e}")
+            print(f"[ERROR] Error loading embedding model: {e}")
             return False
     
     def encode(self, text: Union[str, List[str]], show_progress: bool = False) -> Optional[Union[List[float], List[List[float]]]]:
@@ -54,7 +54,7 @@ class EmbeddingModel:
                 # Multiple texts - embeddings is array of arrays
                 return [emb.tolist() for emb in embeddings]  # type: ignore
         except Exception as e:
-            print(f"❌ Error encoding text: {e}")
+            print(f"[ERROR] Error encoding text: {e}")
             return None
     
     def encode_batch(self, texts: List[str], batch_size: int = 32) -> Optional[List[List[float]]]:
@@ -80,7 +80,7 @@ class EmbeddingModel:
             )
             return [emb.tolist() for emb in embeddings]  # type: ignore
         except Exception as e:
-            print(f"❌ Error encoding batch: {e}")
+            print(f"[ERROR] Error encoding batch: {e}")
             return None
     
     def get_embedding_dimension(self) -> int:

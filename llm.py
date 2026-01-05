@@ -28,16 +28,16 @@ class OllamaLLM:
                 timeout=5
             )
             if result.returncode == 0:
-                print(f"✅ Ollama is installed: {result.stdout.strip()}")
+                print(f"[SUCCESS] Ollama is installed: {result.stdout.strip()}")
                 return True
             else:
-                print("⚠️  Ollama not found. Please install from https://ollama.ai")
+                print("[WARNING] Ollama not found. Please install from https://ollama.ai")
                 return False
         except FileNotFoundError:
-            print("⚠️  Ollama not found. Please install from https://ollama.ai")
+            print("[WARNING] Ollama not found. Please install from https://ollama.ai")
             return False
         except Exception as e:
-            print(f"⚠️  Error checking Ollama: {e}")
+            print(f"[WARNING] Error checking Ollama: {e}")
             return False
     
     def check_ollama_running(self) -> bool:
@@ -51,16 +51,16 @@ class OllamaLLM:
                 timeout=3
             )
             if result.returncode == 0:
-                print("✅ Ollama service is running")
+                print("[SUCCESS] Ollama service is running")
                 return True
             else:
-                print("⚠️  Ollama service may not be running. Try 'ollama serve'")
+                print("[WARNING] Ollama service may not be running. Try 'ollama serve'")
                 return False
         except subprocess.TimeoutExpired:
-            print("⚠️  Ollama service is not responding. Please start it with 'ollama serve'")
+            print("[WARNING] Ollama service is not responding. Please start it with 'ollama serve'")
             return False
         except Exception as e:
-            print(f"⚠️  Cannot connect to Ollama service: {e}")
+            print(f"[WARNING] Cannot connect to Ollama service: {e}")
             return False
     
     def check_model_available(self) -> bool:
@@ -76,30 +76,30 @@ class OllamaLLM:
             # Check if model name appears in the output
             lines = result.stdout.lower()
             if self.model_name.lower() in lines:
-                print(f"✅ Model available: {self.model_name}")
+                print(f"[SUCCESS] Model available: {self.model_name}")
                 return True
             else:
-                print(f"⚠️  Model '{self.model_name}' not found.")
+                print(f"[WARNING] Model '{self.model_name}' not found.")
                 print(f"   Run: ollama pull {self.model_name}")
                 print(f"\nAvailable models:")
                 print(result.stdout)
                 return False
         except Exception as e:
-            print(f"⚠️  Error checking model: {e}")
+            print(f"[WARNING] Error checking model: {e}")
             return False
     
     def pull_model(self):
         """Pull the model from Ollama"""
-        print(f"📥 Pulling model: {self.model_name}")
+        print(f"[DOWNLOADING] Pulling model: {self.model_name}")
         try:
             subprocess.run(
                 ["ollama", "pull", self.model_name],
                 check=True
             )
-            print(f"✅ Model pulled successfully: {self.model_name}")
+            print(f"[SUCCESS] Model pulled successfully: {self.model_name}")
             return True
         except subprocess.CalledProcessError as e:
-            print(f"❌ Error pulling model: {e}")
+            print(f"[ERROR] Error pulling model: {e}")
             return False
     
     def generate(self, prompt: str, max_tokens: int = 500) -> Optional[str]:
@@ -114,7 +114,7 @@ class OllamaLLM:
             Generated text or None if error
         """
         if not self.ollama_available:
-            print("❌ Ollama is not available")
+            print("[ERROR] Ollama is not available")
             return None
         
         try:
@@ -142,25 +142,25 @@ class OllamaLLM:
                 result = response.json()
                 return result.get('response', '').strip()
             elif response.status_code == 404:
-                print(f"❌ Model '{self.model_name}' not found in Ollama")
-                print(f"💡 Run: ollama pull {self.model_name}")
-                print(f"💡 Or check available models: ollama list")
+                print(f"[ERROR] Model '{self.model_name}' not found in Ollama")
+                print(f"[INFO] Run: ollama pull {self.model_name}")
+                print(f"[INFO] Or check available models: ollama list")
                 return None
             else:
-                print(f"❌ Error from Ollama API: {response.status_code}")
+                print(f"[ERROR] Error from Ollama API: {response.status_code}")
                 print(f"Response: {response.text[:200]}")
                 return None
                 
         except requests.exceptions.Timeout:
-            print("❌ LLM generation timed out (45s limit)")
-            print("💡 Model may be slow. Try restarting: ollama serve")
+            print("[ERROR] LLM generation timed out (45s limit)")
+            print("[INFO] Model may be slow. Try restarting: ollama serve")
             return None
         except requests.exceptions.ConnectionError:
-            print("❌ Cannot connect to Ollama service")
-            print("💡 Make sure Ollama is running. Try 'ollama serve' in another terminal")
+            print("[ERROR] Cannot connect to Ollama service")
+            print("[INFO] Make sure Ollama is running. Try 'ollama serve' in another terminal")
             return None
         except Exception as e:
-            print(f"❌ Error calling Ollama: {e}")
+            print(f"[ERROR] Error calling Ollama: {e}")
             return None
     
     def ask_with_context(self, context: str, question: str) -> Optional[str]:
@@ -210,8 +210,8 @@ Answer (extract directly from the information above):"""
             if process.returncode == 0:
                 return stdout.strip()
             else:
-                print(f"❌ Error: {stderr}")
+                print(f"[ERROR] Error: {stderr}")
                 return None
         except Exception as e:
-            print(f"❌ Error streaming: {e}")
+            print(f"[ERROR] Error streaming: {e}")
             return None

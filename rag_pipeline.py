@@ -8,6 +8,8 @@ from pdf_loader import PDFLoader
 from chunking import TextChunker
 from llm import OllamaLLM
 from config import Config
+from adaptive_rag_graph import AdaptiveRAGAgent
+
 
 
 class RAGPipeline:
@@ -18,11 +20,12 @@ class RAGPipeline:
         self.embedder = EmbeddingModel()
         self.chunker = TextChunker()
         self.llm = OllamaLLM()
+        self.rag_agent = None
         self.initialized = False
     
     def initialize(self):
         """Initialize all components"""
-        print("🚀 Initializing RAG Pipeline...")
+        print("[INITIALIZING] Initializing RAG Pipeline...")
         
         # Connect to database
         if not self.db.connect():
@@ -36,11 +39,29 @@ class RAGPipeline:
         if not self.embedder.load():
             raise RuntimeError("Failed to load embedding model")
         
-        # Check LLM
+        # Validate embedding dimensions match config
+        actual_dim = self.embedder.get_embedding_dimension()
+        expected_dim = Config.EMBEDDING_DIM
+        if actual_dim != expected_dim:
+            print(f"[WARNING] Embedding dimension mismatch: expected {expected_dim}, got {actual_dim}")
+            print(f"[INFO] Using actual dimension: {actual_dim}")
+        
+        # Check LLM availability
+        if not self.llm.ollama_available:
+            raise RuntimeError("Ollama is not available. Please install and start Ollama.")
+        
         self.llm.check_model_available()
         
+        # Initialize Adaptive RAG Agent with hallucination checking
+        self.rag_agent = AdaptiveRAGAgent(
+            embedder=self.embedder,
+            db=self.db,
+            llm=self.llm,
+            verbose=False
+        )
+        
         self.initialized = True
-        print("✅ RAG Pipeline initialized\n")
+        print("[SUCCESS] RAG Pipeline initialized\n")
     
     def ingest_pdf(self, pdf_path: str) -> bool:
         """
@@ -65,19 +86,25 @@ class RAGPipeline:
             text = pdf_data['text']
             metadata = pdf_data['metadata']
             
-            # Step 2: Chunk text
-            chunks = self.chunker.chunk_text(text)
-            print(f"📝 Created {len(chunks)} chunks")
+            # Step 2: Chunk text using sentence-based chunking for better semantic boundaries
+            try:
+                chunks = self.chunker.chunk_text_sentences(text)
+                print(f"[INFO] Created {len(chunks)} sentence-based chunks")
+            except Exception as e:
+                # Fallback to simple chunking if sentence chunking fails
+                print(f"[WARNING] Sentence chunking failed: {e}, using simple chunking")
+                chunks = self.chunker.chunk_text(text)
+                print(f"[INFO] Created {len(chunks)} chunks")
             
             # Step 3: Generate embeddings
-            print("🔄 Generating embeddings...")
+            print("[PROCESSING] Generating embeddings...")
             embeddings = self.embedder.encode_batch(chunks, batch_size=32)
             
             if not embeddings:
                 raise RuntimeError("Failed to generate embeddings")
             
             # Step 4: Store in database
-            print("💾 Storing in database...")
+            print("[STORING] Storing in database...")
             documents = [
                 (chunk, embedding, metadata)
                 for chunk, embedding in zip(chunks, embeddings)
@@ -86,20 +113,20 @@ class RAGPipeline:
             doc_ids = self.db.insert_documents_batch(documents)
             
             if doc_ids:
-                print(f"✅ Successfully ingested {len(doc_ids)} chunks")
-                print(f"📊 Total documents in DB: {self.db.get_document_count()}")
+                print(f"[SUCCESS] Successfully ingested {len(doc_ids)} chunks")
+                print(f"[INFO] Total documents in DB: {self.db.get_document_count()}")
                 return True
             else:
-                print("❌ Failed to store documents")
+                print("[ERROR] Failed to store documents")
                 return False
                 
         except Exception as e:
-            print(f"❌ Error ingesting PDF: {e}")
+            print(f"[ERROR] Error ingesting PDF: {e}")
             return False
     
     def query(self, question: str, top_k: Optional[int] = None) -> Dict:
         """
-        Query the RAG system
+        Query the RAG system using Adaptive RAG with hallucination checking
         
         Args:
             question: User's question
@@ -111,68 +138,25 @@ class RAGPipeline:
         if not self.initialized:
             raise RuntimeError("Pipeline not initialized. Call initialize() first.")
         
-        top_k = top_k or Config.TOP_K
-        
         print(f"\n❓ QUERY: {question}")
         print("=" * 60)
         
         try:
-            # Step 1: Embed the question
-            print("🔄 Embedding question...")
-            query_embedding_result = self.embedder.encode(question)
+            if self.rag_agent is None:
+                raise RuntimeError("RAG agent not initialized")
+            # Use Adaptive RAG Agent for intelligent routing and validation
+            result = self.rag_agent.run(question)
             
-            if not query_embedding_result:
-                raise RuntimeError("Failed to embed question")
-            
-            # Ensure it's a single embedding (List[float]), not a batch
-            if isinstance(query_embedding_result[0], list):
-                raise RuntimeError("Expected single embedding, got batch")
-            
-            # Type narrowing: we know it's List[float] at this point
-            query_embedding: List[float] = query_embedding_result  # type: ignore
-            
-            # Step 2: Similarity search
-            print(f"🔍 Searching for top {top_k} similar documents...")
-            results = self.db.similarity_search(query_embedding, k=top_k)
-            
-            if not results:
-                print("⚠️  No relevant documents found")
-                return {
-                    'answer': "I don't have any relevant information to answer that question.",
-                    'sources': [],
-                    'num_sources': 0
-                }
-            
-            print(f"✅ Found {len(results)} relevant documents")
-            
-            # Step 3: Prepare context
-            context_parts = []
-            for i, (content, distance) in enumerate(results, 1):
-                context_parts.append(f"[Document {i}]\n{content}\n")
-            
-            context = "\n".join(context_parts)
-            
-            # Step 4: Generate answer using LLM
-            print("🤖 Generating answer...")
-            answer = self.llm.ask_with_context(context, question)
-            
-            if not answer:
-                answer = "Sorry, I couldn't generate an answer. Please check if Ollama is running and the model is available."
-            
-            print("\n" + "=" * 60)
-            print("💡 ANSWER:")
-            print(answer)
-            print("=" * 60)
-            
+            # Sources already include distances from the agent
             return {
-                'answer': answer,
-                'sources': results,
-                'num_sources': len(results),
-                'question': question
+                'answer': result['answer'],
+                'sources': result['sources'],  # Already list of (content, distance) tuples
+                'num_sources': result['num_sources'],
+                'question': result['question']
             }
             
         except Exception as e:
-            print(f"❌ Error during query: {e}")
+            print(f"[ERROR] Error during query: {e}")
             return {
                 'answer': f"Error: {str(e)}",
                 'sources': [],
@@ -191,7 +175,7 @@ class RAGPipeline:
     
     def clear_database(self):
         """Clear all documents from database"""
-        confirm = input("⚠️  This will delete all documents. Type 'yes' to confirm: ")
+        confirm = input("[WARNING] This will delete all documents. Type 'yes' to confirm: ")
         if confirm.lower() == 'yes':
             self.db.clear_all_documents()
         else:
@@ -201,7 +185,7 @@ class RAGPipeline:
         """Close all connections"""
         if self.db:
             self.db.close()
-        print("✅ Pipeline closed")
+        print("[INFO] Pipeline closed")
     
     def __enter__(self):
         """Context manager entry"""

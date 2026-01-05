@@ -24,15 +24,15 @@ class Database:
         try:
             self.conn = sqlite3.connect(self.db_path)
             self.cur = self.conn.cursor()
-            print(f"✅ Connected to SQLite database: {self.db_path}")
+            print(f"[SUCCESS] Connected to SQLite database: {self.db_path}")
             return True
         except sqlite3.Error as e:
-            print(f"❌ Database connection error: {e}")
+            print(f"[ERROR] Database connection error: {e}")
             return False
     
     def create_extension(self):
         """Dummy method for compatibility - SQLite doesn't need extensions"""
-        print("✅ Using SQLite (no extensions needed)")
+        print("[INFO] Using SQLite (no extensions needed)")
         return True
     
     def create_table(self):
@@ -59,11 +59,11 @@ class Database:
             self.cur.execute(index_query)
             
             self.conn.commit()
-            print("✅ Documents table created (SQLite - no installation needed!)")
-            print("📊 Using manual similarity calculation")
+            print("[SUCCESS] Documents table created (SQLite - no installation needed!)")
+            print("[INFO] Using manual similarity calculation")
             return True
         except sqlite3.Error as e:
-            print(f"❌ Error creating table: {e}")
+            print(f"[ERROR] Error creating table: {e}")
             return False
     
     def insert_document(self, content: str, embedding: List[float], metadata: Optional[dict] = None):
@@ -83,7 +83,7 @@ class Database:
             self.conn.commit()
             return self.cur.lastrowid
         except sqlite3.Error as e:
-            print(f"❌ Error inserting document: {e}")
+            print(f"[ERROR] Error inserting document: {e}")
             return None
     
     def insert_documents_batch(self, documents: List[Tuple[str, List[float], dict]]):
@@ -103,10 +103,10 @@ class Database:
             """
             self.cur.executemany(insert_query, prepared_docs)
             self.conn.commit()
-            print(f"✅ Inserted {len(documents)} documents")
+            print(f"[SUCCESS] Inserted {len(documents)} documents")
             return list(range(1, len(documents) + 1))  # Return mock IDs
         except sqlite3.Error as e:
-            print(f"❌ Error inserting documents: {e}")
+            print(f"[ERROR] Error inserting documents: {e}")
             return None
     
     @staticmethod
@@ -130,7 +130,9 @@ class Database:
             raise RuntimeError("Database not connected. Call connect() first.")
         
         try:
-            self.cur.execute("SELECT id, content, embedding FROM documents")
+            # Limit query to reasonable number to avoid memory issues
+            # For production, consider implementing approximate nearest neighbor search
+            self.cur.execute("SELECT id, content, embedding FROM documents LIMIT 10000")
             all_docs = self.cur.fetchall()
             
             if not all_docs:
@@ -147,10 +149,10 @@ class Database:
             return similarities[:k]
             
         except sqlite3.Error as e:
-            print(f"❌ Error performing similarity search: {e}")
+            print(f"[ERROR] Error performing similarity search: {e}")
             return []
         except json.JSONDecodeError as e:
-            print(f"❌ Error decoding embedding: {e}")
+            print(f"[ERROR] Error decoding embedding: {e}")
             return []
     
     def get_document_count(self) -> int:
@@ -163,7 +165,7 @@ class Database:
             count = self.cur.fetchone()[0]
             return count
         except sqlite3.Error as e:
-            print(f"❌ Error getting document count: {e}")
+            print(f"[ERROR] Error getting document count: {e}")
             return 0
     
     def clear_all_documents(self):
@@ -175,10 +177,10 @@ class Database:
             self.cur.execute("DELETE FROM documents")
             self.cur.execute("DELETE FROM sqlite_sequence WHERE name='documents'")
             self.conn.commit()
-            print("✅ All documents cleared")
+            print("[SUCCESS] All documents cleared")
             return True
         except sqlite3.Error as e:
-            print(f"❌ Error clearing documents: {e}")
+            print(f"[ERROR] Error clearing documents: {e}")
             return False
     
     def close(self):
@@ -187,7 +189,7 @@ class Database:
             self.cur.close()
         if self.conn:
             self.conn.close()
-        print("✅ Database connection closed")
+        print("[INFO] Database connection closed")
     
     def __enter__(self):
         """Context manager entry"""

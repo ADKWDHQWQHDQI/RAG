@@ -29,6 +29,11 @@ class Config:
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
     LLM_TIMEOUT = int(os.getenv('LLM_TIMEOUT', '90'))
     
+    # RAG Agent Configuration
+    MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))
+    ENABLE_WEB_SEARCH = os.getenv('ENABLE_WEB_SEARCH', 'True').lower() == 'true'
+    ENABLE_ANSWER_GRADING = os.getenv('ENABLE_ANSWER_GRADING', 'True').lower() == 'true'
+    
     @classmethod
     def validate(cls):
         """Validate configuration"""

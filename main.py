@@ -10,9 +10,9 @@ from config import Config
 def print_header():
     """Print welcome header"""
     print("\n" + "=" * 60)
-    print("🚀 Local RAG System")
+    print("[RAG SYSTEM] Local RAG System")
     print("   SQLite + Python + Open Source LLM")
-    print("   ✨ Zero Installation Required!")
+    print("   [INFO] Zero Installation Required!")
     print("=" * 60 + "\n")
 
 
@@ -33,7 +33,7 @@ def ingest_pdf_interactive(pipeline: RAGPipeline):
     pdf_path = input("\nEnter PDF file path: ").strip().strip('"\'')
     
     if not os.path.exists(pdf_path):
-        print(f"❌ File not found: {pdf_path}")
+        print(f"[ERROR] File not found: {pdf_path}")
         return
     
     pipeline.ingest_pdf(pdf_path)
@@ -44,13 +44,13 @@ def query_interactive(pipeline: RAGPipeline):
     question = input("\nEnter your question: ").strip()
     
     if not question:
-        print("❌ Please enter a question")
+        print("[ERROR] Please enter a question")
         return
     
     result = pipeline.query(question)
     
     print("\n" + "=" * 60)
-    print("📚 SOURCES:")
+    print("[SOURCES]:")
     print("=" * 60)
     for i, (content, distance) in enumerate(result['sources'], 1):
         print(f"\n[Source {i}] (distance: {distance:.4f})")
@@ -61,7 +61,7 @@ def show_stats(pipeline: RAGPipeline):
     """Show pipeline statistics"""
     stats = pipeline.get_stats()
     print("\n" + "=" * 60)
-    print("📊 STATISTICS")
+    print("[STATISTICS]")
     print("=" * 60)
     print(f"Total documents in database: {stats['total_documents']}")
     print(f"Embedding model: {stats['embedding_model']}")
@@ -69,6 +69,10 @@ def show_stats(pipeline: RAGPipeline):
     print(f"Chunk size: {stats['chunk_size']}")
     print(f"LLM model: {stats['llm_model']}")
     print("=" * 60)
+    
+    # Show query statistics if available
+    if hasattr(pipeline, 'rag_agent') and pipeline.rag_agent:
+        pipeline.rag_agent.print_stats()
 
 
 def main():
@@ -77,7 +81,7 @@ def main():
     
     # Check if setup has been run
     if not os.path.exists('.env'):
-        print("⚠️  No .env file found!")
+        print("[WARNING] No .env file found!")
         print("   1. Copy .env.example to .env")
         print("   2. Configure your settings")
         print("   3. Run: python setup_database.py")
@@ -86,7 +90,7 @@ def main():
     try:
         Config.validate()
     except ValueError as e:
-        print(f"❌ Configuration error: {e}")
+        print(f"[ERROR] Configuration error: {e}")
         return
     
     # Initialize pipeline
@@ -95,7 +99,7 @@ def main():
         pipeline = RAGPipeline()
         pipeline.initialize()
     except Exception as e:
-        print(f"❌ Failed to initialize pipeline: {e}")
+        print(f"[ERROR] Failed to initialize pipeline: {e}")
         print("\nDid you run setup_database.py?")
         return
     
@@ -114,13 +118,13 @@ def main():
             elif choice == '4':
                 pipeline.clear_database()
             elif choice == '5':
-                print("\n👋 Goodbye!")
+                print("\n[EXIT] Goodbye!")
                 break
             else:
-                print("❌ Invalid option. Please select 1-5.")
+                print("[ERROR] Invalid option. Please select 1-5.")
     
     except KeyboardInterrupt:
-        print("\n\n👋 Interrupted by user")
+        print("\n\n[EXIT] Interrupted by user")
     finally:
         pipeline.close()
 
@@ -142,7 +146,7 @@ def demo():
             question = input("\nAsk a question about the document: ")
             result = pipeline.query(question)
             
-            print("\n📚 Sources used:")
+            print("\n[SOURCES] Sources used:")
             for i, (content, distance) in enumerate(result['sources'], 1):
                 print(f"\n[{i}] Distance: {distance:.4f}")
                 print(content[:150] + "...")

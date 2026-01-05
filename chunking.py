@@ -42,7 +42,7 @@ class TextChunker:
             # Move start position with overlap
             start += self.chunk_size - self.overlap
         
-        print(f"✅ Created {len(chunks)} chunks (size={self.chunk_size}, overlap={self.overlap})")
+        print(f"[SUCCESS] Created {len(chunks)} chunks (size={self.chunk_size}, overlap={self.overlap})")
         return chunks
     
     def chunk_text_sentences(self, text: str) -> List[str]:
@@ -98,7 +98,7 @@ class TextChunker:
             chunk_text = '. '.join(current_chunk) + '.'
             chunks.append(chunk_text)
         
-        print(f"✅ Created {len(chunks)} sentence-based chunks")
+        print(f"[SUCCESS] Created {len(chunks)} sentence-based chunks")
         return chunks
     
     @staticmethod
@@ -125,5 +125,5 @@ class TextChunker:
             chunks.append(chunk)
             start += max_tokens - overlap_tokens
         
-        print(f"✅ Created {len(chunks)} token-based chunks")
+        print(f"[SUCCESS] Created {len(chunks)} token-based chunks")
         return chunks

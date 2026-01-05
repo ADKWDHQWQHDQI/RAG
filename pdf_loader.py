@@ -34,7 +34,7 @@ class PDFLoader:
         try:
             reader = PdfReader(self.pdf_path)
             num_pages = len(reader.pages)
-            print(f"📄 Loading PDF: {os.path.basename(self.pdf_path)}")
+            print(f"[LOADING] Loading PDF: {os.path.basename(self.pdf_path)}")
             print(f"   Pages: {num_pages}")
             
             text_parts = []
@@ -44,11 +44,11 @@ class PDFLoader:
                     text_parts.append(text)
             
             full_text = "\n".join(text_parts)
-            print(f"✅ Extracted {len(full_text)} characters from PDF")
+            print(f"[SUCCESS] Extracted {len(full_text)} characters from PDF")
             
             return full_text
         except Exception as e:
-            print(f"❌ Error loading PDF: {e}")
+            print(f"[ERROR] Error loading PDF: {e}")
             raise
     
     def load_with_metadata(self) -> Dict:
@@ -91,7 +91,7 @@ class PDFLoader:
                 'metadata': metadata
             }
         except Exception as e:
-            print(f"❌ Error loading PDF with metadata: {e}")
+            print(f"[ERROR] Error loading PDF with metadata: {e}")
             raise
     
     @staticmethod
