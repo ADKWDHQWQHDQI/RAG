@@ -9,15 +9,47 @@ A complete, production-ready RAG (Retrieval Augmented Generation) system built f
 ```
 PDF → Text Extraction → Chunking → Embeddings → SQLite Database
                                                           ↓
-User Query → Embedding → Vector Search → Context → LLM → Answer
+                    ┌─────────────────────────────────────┤
+                    │                                     │
+User Query → Embedding → Adaptive RAG Router             │
+                    │                                     │
+                    ├→ Vector Search (local docs) ────────┘
+                    │         ↓
+                    │    Grade Documents (relevance check)
+                    │         ↓
+                    │    Generate Answer
+                    │         ↓
+                    │    Check Hallucinations
+                    │         ↓
+                    │    Grade Answer (useful?)
+                    │         │
+                    │    ┌────┴────┐
+                    │    │ Good?   │
+                    │    └─Yes─No──┘
+                    │         │   │
+                    └─────────┤   └→ Web Search (DuckDuckGo)
+                              │              ↓
+                         Final Answer   Generate from Web
 ```
 
 ## Features
 
+### Core Features
 - **Free & Local** - Uses open-source models (sentence-transformers + Ollama)
 - **Zero Installation** - SQLite comes with Python, no database setup needed
 - **Pure Python** - Direct SQL queries for similarity search
 - **Production Ready** - Error handling, logging, batch processing
+
+### Adaptive RAG Intelligence
+- **Intelligent Routing** - Automatically decides between local documents and web search
+- **Document Grading** - Evaluates retrieved documents for relevance using LLM
+- **Keyword Fallback** - Fallback grading mechanism when LLM grading fails
+- **Web Search Integration** - DuckDuckGo search when local documents are insufficient
+- **Hallucination Detection** - Validates answers against source documents
+- **Answer Quality Check** - Grades generated answers for usefulness
+- **Query Transformation** - Retries with improved queries if initial answer is poor
+- **Actual Distance Metrics** - Shows real cosine similarity distances (not mock values)
+- **Source Attribution** - Every answer includes source documents with similarity scores
 
 ## Prerequisites
 
@@ -82,14 +114,31 @@ with RAGPipeline() as pipeline:
     # Ingest a PDF
     pipeline.ingest_pdf("document.pdf")
 
-    # Query
+    # Query with Adaptive RAG
     result = pipeline.query("What are the key points?")
     print(result['answer'])
-
-    # Access sources
-    for content, distance in result['sources']:
-        print(f"Distance: {distance}")
-        print(f"Content: {content}")
+    
+    # Analyze answer metadata
+    print(f"\nSources used: {result['num_sources']}")
+    print(f"Data source: {result.get('datasource', 'local')}")
+    
+    # Access sources with actual distance metrics
+    for i, (content, distance) in enumerate(result['sources'], 1):
+        print(f"\n[Source {i}] (distance: {distance:.4f})")
+        
+        # Interpret distance
+        if distance < 0.3:
+            print("  Relevance: HIGH - Highly relevant match")
+        elif distance < 0.5:
+            print("  Relevance: GOOD - Relevant semantic match")
+        elif distance < 0.7:
+            print("  Relevance: FAIR - Somewhat relevant")
+        elif distance < 1.0:
+            print("  Relevance: LOW - Weak match")
+        else:
+            print("  Relevance: WEB - External source (DuckDuckGo)")
+        
+        print(f"  Content: {content[:200]}...")
 ```
 
 ## Components
@@ -131,11 +180,73 @@ with RAGPipeline() as pipeline:
 - Context-aware prompting with explicit instructions
 - Comprehensive error handling (404, timeout, connection errors)
 
-### 6. RAG Pipeline (`rag_pipeline.py`)
+### 6. Adaptive RAG Graph (`adaptive_rag_graph.py`)
+
+**Intelligent document retrieval and answer generation with quality control:**
+
+#### Workflow:
+
+1. **Retrieve** - Fetch documents from local vector database
+   - Embeds question using sentence-transformers
+   - Performs cosine similarity search
+   - Returns documents with actual distance scores
+   - Distance calculation: `distance = 1 - cosine_similarity`
+   - Lower distance = more similar/relevant (0.0 = identical, 1.0 = unrelated)
+
+2. **Grade Documents** - Evaluate relevance using LLM
+   - Asks LLM to score each document: "yes" or "no"
+   - Batch grading for efficiency
+   - **Keyword Fallback**: If LLM grading fails (JSON parse errors), uses keyword matching
+   - Accepts documents if ≥30% of question keywords match
+   - Filters out irrelevant documents before generating answer
+
+3. **Check Web Search Need** - Decide if local docs are sufficient
+   - If no relevant documents found → trigger web search
+   - If all documents graded as irrelevant → trigger web search
+   - If sufficient relevant documents → proceed with generation
+
+4. **Generate Answer** - Create response from context
+   - Combines filtered documents into context
+   - Uses Ollama LLM with explicit instructions
+   - Includes source citations if requested
+
+5. **Check Hallucinations** - Validate answer against sources
+   - Asks LLM: "Is the answer supported by the documents?"
+   - Detects made-up information not present in sources
+   - Scores: "yes" (supported), "no" (hallucination)
+
+6. **Grade Answer** - Evaluate usefulness
+   - Asks LLM: "Does the answer resolve the question?"
+   - Scores: "useful" or "not useful"
+   - If not useful → retry with transformed query (max 3 attempts)
+
+7. **Web Search Fallback** - Retrieve from internet when needed
+   - Uses DuckDuckGo search (5 results)
+   - Triggered when local documents insufficient
+   - Web results assigned distance 1.0 (indicating external source)
+   - Formats results with title, URL, and content
+   - Generates answer from web search results
+
+#### Configuration:
+- `ENABLE_GRADING = True` - Document relevance checking
+- `ENABLE_HALLUCINATION_CHECK = True` - Answer validation
+- `ENABLE_WEB_SEARCH = True` - Web fallback
+- `MAX_RETRIES = 3` - Query transformation attempts
+- `VERBOSE = False` - Detailed logging (set True for debugging)
+
+#### Distance Metrics:
+- **0.0 - 0.3**: Highly relevant, nearly identical content
+- **0.3 - 0.5**: Relevant, good semantic match
+- **0.5 - 0.7**: Somewhat relevant, loose match
+- **0.7 - 1.0**: Low relevance, different topic
+- **1.0**: Web search result (no similarity calculated)
+
+### 7. RAG Pipeline (`rag_pipeline.py`)
 
 - Orchestrates all components
 - End-to-end workflow
 - Error handling and logging
+- Preserves actual distance metrics from database to display
 
 ## Configuration
 
@@ -156,6 +267,13 @@ CHUNK_OVERLAP=50
 # Retrieval
 TOP_K=5
 
+# Adaptive RAG Features
+ENABLE_GRADING=true                  # Document relevance grading
+ENABLE_HALLUCINATION_CHECK=true     # Validate answers against sources
+ENABLE_WEB_SEARCH=true              # Fallback to DuckDuckGo when needed
+MAX_RETRIES=3                       # Query transformation attempts
+VERBOSE=false                       # Detailed logging (true for debugging)
+
 # LLM Configuration
 OLLAMA_MODEL=llama3.2:3b
 OLLAMA_BASE_URL=http://localhost:11434
@@ -171,13 +289,79 @@ LLM_TIMEOUT=90
 3. **Generate Embeddings** → Use sentence-transformers (384-dim vectors)
 4. **Store in DB** → Save to SQLite database
 
-### Query Flow
+### Query Flow (Adaptive RAG)
 
-1. **Embed Question** → Convert to 384-dim vector
-2. **Vector Search** → Python cosine similarity calculation
-3. **Retrieve Context** → Get top-k similar chunks
-4. **Generate Answer** → Feed context to Ollama LLM
-5. **Return Response** → Answer + sources
+1. **Embed Question** → Convert to 384-dim vector using sentence-transformers
+
+2. **Retrieve Documents** → Vector search with cosine similarity
+   - Search SQLite database for similar embeddings
+   - Calculate: `distance = 1 - cosine_similarity`
+   - Return top-5 documents with actual distances
+   - Distance preserved throughout pipeline (not mocked)
+
+3. **Grade Documents** → LLM evaluates relevance
+   - Prompt: "Is this document relevant to the question? Answer yes/no"
+   - Batch grading for efficiency
+   - Keyword fallback if LLM grading fails
+   - Filter out irrelevant documents
+
+4. **Decision Point** → Route based on document quality
+   - **If relevant docs found** → Proceed to generation
+   - **If no relevant docs** → Trigger web search
+
+5. **Generate Answer** → Create response from context
+   - Combine filtered documents
+   - Send to Ollama with explicit instructions
+   - Include source citations
+
+6. **Validate Answer** → Quality checks
+   - **Hallucination Check**: "Is answer supported by documents?"
+   - **Usefulness Check**: "Does answer resolve the question?"
+   - If checks fail → transform query and retry (max 3 times)
+
+7. **Web Search Fallback** (if needed)
+   - Query DuckDuckGo (5 results)
+   - Format: title + URL + snippet
+   - Generate answer from web content
+   - Mark sources with distance 1.0
+
+8. **Return Response** → Answer + sources + metadata
+   - Answer text
+   - Source documents with real distances
+   - Data source ("local" or "web")
+   - Number of sources used
+
+### Web Search Flow
+
+When local documents are insufficient:
+
+1. **Trigger Conditions**:
+   - No documents found in vector database
+   - All documents graded as irrelevant
+   - Generated answer deemed not useful after retries
+
+2. **DuckDuckGo Search**:
+   - Sends query to DuckDuckGo API
+   - Retrieves 5 top results
+   - Extracts: title, URL, snippet/body
+
+3. **Format Results**:
+   ```
+   **{title}**
+   Source: {url}
+   
+   {body/snippet}
+   ```
+
+4. **Generate Answer**:
+   - Use web search results as context
+   - Same LLM prompt structure
+   - Include web URLs as sources
+
+5. **Mark as Web Source**:
+   - Distance: 1.0 (max distance, indicates external)
+   - Datasource: "web"
+   - Clear attribution to web sources
 
 ## Database Schema
 
